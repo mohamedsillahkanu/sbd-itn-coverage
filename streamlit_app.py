@@ -50,7 +50,7 @@ def create_chiefdom_mapping():
         "Bagbwe": "BAGBWE(BAGBE)",
         "Baoma": "BOAMA",
         "Bongor": "BONGOR",
-        "Bumpeh": "BUMPE NGAO",
+        "Bumpe Ngao": "BUMPE NGAO",
         "Gbo": "GBO",
         "Jaiama": "JAIAMA",
         "Kakua": "KAKUA",
@@ -58,7 +58,7 @@ def create_chiefdom_mapping():
         "Lugbu": "LUGBU",
         "Niawa Lenga": "NIAWA LENGA",
         "Selenga": "SELENGA",
-        "Tinkoko": "TIKONKO",
+        "Tikonko": "TIKONKO",
         "Valunia": "VALUNIA",
         "Wonde": "WONDE",
         
@@ -356,12 +356,23 @@ def generate_simple_summary(itn_df):
 st.title("🛡️ Section 3: ITN Coverage Analysis")
 st.markdown("**ITN distribution effectiveness by chiefdom**")
 
+# Color legend
+st.markdown("""
+### Coverage Color Legend:
+- 🔴 **Red**: < 20%
+- 🟠 **Orange**: 20-39%
+- 🟡 **Yellow**: 40-59%
+- 🟢 **Light Green**: 60-79%
+- 🔵 **Blue**: 80-99%
+- 🟣 **Purple**: 100%+
+""")
+
 # Coverage format explanation
 st.markdown("""
 ### ITN Coverage Format:
 - **Title**: `(ITNs Distributed, Total Enrollment)`
 - **Center**: Coverage percentage
-- **Colors**: Same as Section 2 (Red < 20%, Orange 20-39%, etc.)
+- **Colors**: Same as above color legend
 """)
 
 # File Information
@@ -373,7 +384,7 @@ st.info("""
 # Load the embedded data files
 try:
     # Load Excel file (embedded)
-    df_original = pd.read_excel("SBD_07_02_lastest (1).xlsx")
+    df_original = pd.read_excel("sbd first_submission_clean.xlsx")
     st.success(f"✅ Excel file loaded successfully! Found {len(df_original)} records.")
     
 except Exception as e:
