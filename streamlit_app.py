@@ -50,7 +50,7 @@ def create_chiefdom_mapping():
         "Bagbwe": "BAGBWE(BAGBE)",
         "Baoma": "BOAMA",
         "Bongor": "BONGOR",
-        "Bumpe Ngao": "BUMPE NGAO",
+        "Bumpeh": "BUMPE NGAO",
         "Gbo": "GBO",
         "Jaiama": "JAIAMA",
         "Kakua": "KAKUA",
@@ -58,7 +58,7 @@ def create_chiefdom_mapping():
         "Lugbu": "LUGBU",
         "Niawa Lenga": "NIAWA LENGA",
         "Selenga": "SELENGA",
-        "Tikonko": "TIKONKO",
+        "Tinkoko": "TIKONKO",
         "Valunia": "VALUNIA",
         "Wonde": "WONDE",
         
