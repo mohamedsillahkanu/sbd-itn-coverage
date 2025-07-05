@@ -145,18 +145,24 @@ def extract_itn_data_from_excel(df):
         
         total_enrollment.append(enrollment_total)
         
-        # Calculate total ITNs distributed (boys + girls only)
+        # Calculate total ITNs distributed (boys + girls only + left)
         itns_distributed = 0
         for class_num in range(1, 6):  # Classes 1-5
             # ITNs distributed (boys + girls)
             boys_col = f"How many boys in Class {class_num} received ITNs?"
             girls_col = f"How many girls in Class {class_num} received ITNs?"
+            left_col =  f"ITNs left at the school for pupils who were absent."
             
             if boys_col in df.columns:
                 boys_itns = df[boys_col].iloc[idx]
                 if pd.notna(boys_itns):
                     itns_distributed += int(boys_itns)
             
+            if left_col in df.columns:
+                left_itns = df[left_col].iloc[idx]
+                if pd.notna(left_itns):
+                    itns_distributed += int(left_itns)
+
             if girls_col in df.columns:
                 girls_itns = df[girls_col].iloc[idx]
                 if pd.notna(girls_itns):
