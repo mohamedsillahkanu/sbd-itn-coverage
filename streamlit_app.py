@@ -148,7 +148,7 @@ def extract_itn_data_from_excel(df):
         # Calculate total ITNs distributed (boys + girls only + left)
         itns_distributed = 0
         for class_num in range(1, 6):  # Classes 1-5
-            # ITNs distributed (boys + girls)
+            # ITNs distributed (boys + girls + left)
             boys_col = f"How many boys in Class {class_num} received ITNs?"
             girls_col = f"How many girls in Class {class_num} received ITNs?"
             left_col =  f"ITNs left at the school for pupils who were absent."
