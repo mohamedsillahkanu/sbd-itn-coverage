@@ -422,6 +422,42 @@ show_itn_details = True  # Always show ITN data details
 try:
     itn_df = extract_itn_data_from_excel(df_original)
     st.success(f"✅ ITN data extracted successfully! Found {len(itn_df)} records.")
+    
+    # Debug: Show column names that might contain ITNs left information
+    with st.expander("🔍 Debug: Check ITNs Left Column"):
+        st.write("**Available columns containing 'ITN' or 'left':**")
+        itn_columns = [col for col in df_original.columns if 'itn' in col.lower() or 'left' in col.lower()]
+        for col in itn_columns:
+            st.write(f"- {col}")
+        
+        # Show summary of ITNs left totals
+        total_boys = sum([df_original[f"How many boys in Class {i} received ITNs?"].fillna(0).sum() for i in range(1, 6) if f"How many boys in Class {i} received ITNs?" in df_original.columns])
+        total_girls = sum([df_original[f"How many girls in Class {i} received ITNs?"].fillna(0).sum() for i in range(1, 6) if f"How many girls in Class {i} received ITNs?" in df_original.columns])
+        
+        # Check different possible column names for ITNs left
+        left_col = "ITNs left at the school for pupils who were absent."
+        total_left = 0
+        found_left_column = None
+        
+        if left_col in df_original.columns:
+            found_left_column = left_col
+            total_left = df_original[left_col].fillna(0).sum()
+        
+        st.write(f"**ITN Distribution Breakdown:**")
+        st.write(f"- Total Boys ITNs: {total_boys:,}")
+        st.write(f"- Total Girls ITNs: {total_girls:,}")
+        st.write(f"- Total Left at School: {total_left:,}")
+        st.write(f"- Left Column Found: {found_left_column}")
+        st.write(f"- **Grand Total: {total_boys + total_girls + total_left:,}**")
+        
+        calculated_total = int(itn_df["Distributed_ITNs"].sum())
+        st.write(f"- **Calculated in DataFrame: {calculated_total:,}**")
+        
+        if calculated_total != (total_boys + total_girls + total_left):
+            st.error(f"❌ Mismatch! Expected {total_boys + total_girls + total_left:,} but got {calculated_total:,}")
+        else:
+            st.success("✅ ITN calculations match!")
+            
 except Exception as e:
     st.error(f"Error extracting ITN data: {e}")
     itn_df = pd.DataFrame()
