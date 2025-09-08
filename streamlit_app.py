@@ -771,7 +771,12 @@ if st.button("📋 Generate Combined ITN Report", help="Generate a comprehensive
         • BOMBALI District Coverage: {bombali_coverage:.1f}%
         
         Coverage is calculated as: (ITNs Distributed / Total Enrollment) × 100%
-        ITN Total = Boys ITNs + Girls ITNs + ITNs Left at School
+        
+        Formulas:
+        • ITN Distributed = Boys ITNs + Girls ITNs + ITNs Left at School
+        • Total Enrollment = Sum of all pupils enrolled in Classes 1-5
+        • Coverage = (ITNs Distributed / Total Enrollment) × 100%
+        
         Color coding helps identify areas requiring attention and those performing well.
         Format shows (ITNs Distributed, Total Enrollment) with coverage percentage in center.
         """
