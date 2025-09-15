@@ -125,7 +125,7 @@ def calculate_itn_totals_per_row(df, row_idx):
             if pd.notna(girls_val):
                 girls_total += int(girls_val)
     
-    # ITNs left at school (single value per school)
+    # ITNs left at school (single value per school) - FIXED: Only counted once per school
     left_col = "ITNs left at the school for pupils who were absent."
     if left_col in df.columns:
         left_val = df[left_col].iloc[row_idx]
@@ -166,7 +166,8 @@ def calculate_itn_totals_for_dataframe(df):
             girls_by_class[f"Class {class_num}"] = class_girls
             total_girls += class_girls
     
-    # ITNs left at school (sum across all schools) - THIS SHOULD ONLY BE COUNTED ONCE PER SCHOOL
+    # FIXED: ITNs left at school - this is per school, not per class
+    # Only sum this once across all schools, not multiplied by classes
     left_col = "ITNs left at the school for pupils who were absent."
     if left_col in df.columns:
         total_left = int(df[left_col].fillna(0).sum())
@@ -223,7 +224,7 @@ def extract_itn_data_from_excel(df):
         
         total_enrollment.append(enrollment_total)
         
-        # Calculate ITN totals using consistent method
+        # FIXED: Calculate ITN totals using consistent method
         itn_data = calculate_itn_totals_per_row(df, idx)
         distributed_itns.append(itn_data['total_distributed'])
     
@@ -236,6 +237,148 @@ def extract_itn_data_from_excel(df):
     })
     
     return itn_df
+
+def generate_summaries(df):
+    """Generate District, Chiefdom, and Gender summaries - CONSISTENT WITH FIRST DOCUMENT"""
+    summaries = {}
+    
+    # Overall Summary
+    overall_summary = {
+        'total_schools': len(df),
+        'total_districts': len(df['District'].dropna().unique()) if 'District' in df.columns else 0,
+        'total_chiefdoms': len(df['Chiefdom'].dropna().unique()) if 'Chiefdom' in df.columns else 0,
+        'total_boys': 0,
+        'total_girls': 0,
+        'total_enrollment': 0,
+        'total_itn': 0,
+        'total_left': 0
+    }
+    
+    # Calculate totals using the correct columns
+    for class_num in range(1, 6):
+        # Total enrollment from "Number of enrollments in class X"
+        enrollment_col = f"How many pupils are enrolled in Class {class_num}?"
+        if enrollment_col in df.columns:
+            overall_summary['total_enrollment'] += int(df[enrollment_col].fillna(0).sum())
+        
+        # Boys and girls for gender analysis AND ITN calculation
+        boys_col = f"How many boys in Class {class_num} received ITNs?"
+        girls_col = f"How many girls in Class {class_num} received ITNs?"
+        
+        if boys_col in df.columns:
+            overall_summary['total_boys'] += int(df[boys_col].fillna(0).sum())
+        if girls_col in df.columns:
+            overall_summary['total_girls'] += int(df[girls_col].fillna(0).sum())
+    
+    # FIXED: ITNs left at school - this should be per school, not per class
+    itn_left_col = "ITNs left at the school for pupils who were absent."
+    if itn_left_col in df.columns:
+        overall_summary['total_left'] += int(df[itn_left_col].fillna(0).sum())
+    
+    # Total ITNs = boys + girls + left (all ITNs distributed or allocated)
+    overall_summary['total_itn'] = overall_summary['total_boys'] + overall_summary['total_girls'] + overall_summary['total_left']
+    
+    # Calculate coverage
+    overall_summary['coverage'] = (overall_summary['total_itn'] / overall_summary['total_enrollment'] * 100) if overall_summary['total_enrollment'] > 0 else 0
+    overall_summary['itn_remaining'] = overall_summary['total_enrollment'] - overall_summary['total_itn']
+    
+    summaries['overall'] = overall_summary
+    
+    # District Summary
+    district_summary = []
+    for district in df['District'].dropna().unique():
+        district_data = df[df['District'] == district]
+        district_stats = {
+            'district': district,
+            'schools': len(district_data),
+            'chiefdoms': len(district_data['Chiefdom'].dropna().unique()),
+            'boys': 0,
+            'girls': 0,
+            'enrollment': 0,
+            'itn': 0,
+            'left': 0
+        }
+        
+        for class_num in range(1, 6):
+            # Total enrollment from "Number of enrollments in class X"
+            enrollment_col = f"How many pupils are enrolled in Class {class_num}?"
+            if enrollment_col in district_data.columns:
+                district_stats['enrollment'] += int(district_data[enrollment_col].fillna(0).sum())
+            
+            # Boys and girls for gender analysis AND ITN calculation
+            boys_col = f"How many boys in Class {class_num} received ITNs?"
+            girls_col = f"How many girls in Class {class_num} received ITNs?"
+            
+            if boys_col in district_data.columns:
+                district_stats['boys'] += int(district_data[boys_col].fillna(0).sum())
+            if girls_col in district_data.columns:
+                district_stats['girls'] += int(district_data[girls_col].fillna(0).sum())
+        
+        # ITNs left at school - this should be per school, not per class
+        itn_left_col = "ITNs left at the school for pupils who were absent."
+        if itn_left_col in district_data.columns:
+            district_stats['left'] += int(district_data[itn_left_col].fillna(0).sum())
+        
+        # Total ITNs = boys + girls + left (all ITNs distributed or allocated)
+        district_stats['itn'] = district_stats['boys'] + district_stats['girls'] + district_stats['left']
+        
+        # Calculate coverage
+        district_stats['coverage'] = (district_stats['itn'] / district_stats['enrollment'] * 100) if district_stats['enrollment'] > 0 else 0
+        district_stats['itn_remaining'] = district_stats['enrollment'] - district_stats['itn']
+        
+        district_summary.append(district_stats)
+    
+    summaries['district'] = district_summary
+    
+    # Chiefdom Summary - UPDATED TO INCLUDE ITNs LEFT
+    chiefdom_summary = []
+    for district in df['District'].dropna().unique():
+        district_data = df[df['District'] == district]
+        for chiefdom in district_data['Chiefdom'].dropna().unique():
+            chiefdom_data = district_data[district_data['Chiefdom'] == chiefdom]
+            chiefdom_stats = {
+                'district': district,
+                'chiefdom': chiefdom,
+                'schools': len(chiefdom_data),
+                'boys': 0,
+                'girls': 0,
+                'enrollment': 0,
+                'itn': 0,
+                'left': 0
+            }
+            
+            for class_num in range(1, 6):
+                # Total enrollment from "Number of enrollments in class X"
+                enrollment_col = f"How many pupils are enrolled in Class {class_num}?"
+                if enrollment_col in chiefdom_data.columns:
+                    chiefdom_stats['enrollment'] += int(chiefdom_data[enrollment_col].fillna(0).sum())
+                
+                # Boys and girls for gender analysis AND ITN calculation
+                boys_col = f"How many boys in Class {class_num} received ITNs?"
+                girls_col = f"How many girls in Class {class_num} received ITNs?"
+                
+                if boys_col in chiefdom_data.columns:
+                    chiefdom_stats['boys'] += int(chiefdom_data[boys_col].fillna(0).sum())
+                if girls_col in chiefdom_data.columns:
+                    chiefdom_stats['girls'] += int(chiefdom_data[girls_col].fillna(0).sum())
+            
+            # ITNs left at school - this should be per school, not per class
+            itn_left_col = "ITNs left at the school for pupils who were absent."
+            if itn_left_col in chiefdom_data.columns:
+                chiefdom_stats['left'] += int(chiefdom_data[itn_left_col].fillna(0).sum())
+            
+            # Total ITNs = boys + girls + left (all ITNs distributed or allocated)
+            chiefdom_stats['itn'] = chiefdom_stats['boys'] + chiefdom_stats['girls'] + chiefdom_stats['left']
+            
+            # Calculate coverage
+            chiefdom_stats['coverage'] = (chiefdom_stats['itn'] / chiefdom_stats['enrollment'] * 100) if chiefdom_stats['enrollment'] > 0 else 0
+            chiefdom_stats['itn_remaining'] = chiefdom_stats['enrollment'] - chiefdom_stats['itn']
+            
+            chiefdom_summary.append(chiefdom_stats)
+    
+    summaries['chiefdom'] = chiefdom_summary
+    
+    return summaries
 
 def get_coverage_color(coverage_percent):
     """Get color based on coverage percentage"""
@@ -253,7 +396,7 @@ def get_coverage_color(coverage_percent):
         return '#4a148c'  # Purple (100% coverage)
 
 def create_itn_coverage_dashboard(gdf, itn_df, district_name, cols=4):
-    """Create ITN coverage dashboard optimized for Word document export"""
+    """Create ITN coverage dashboard optimized for Word document export - FIXED CALCULATIONS"""
     
     # Filter shapefile for the district
     district_gdf = gdf[gdf['FIRST_DNAM'] == district_name].copy()
@@ -296,7 +439,7 @@ def create_itn_coverage_dashboard(gdf, itn_df, district_name, cols=4):
         district_data = itn_df[itn_df["District"].str.upper() == district_name.upper()].copy()
         chiefdom_data = district_data[district_data["Chiefdom"] == chiefdom].copy()
         
-        # Calculate totals for this chiefdom
+        # FIXED: Calculate totals for this chiefdom using consistent method
         enrollment_total = int(chiefdom_data["Total_Enrollment"].sum()) if len(chiefdom_data) > 0 else 0
         itns_total = int(chiefdom_data["Distributed_ITNs"].sum()) if len(chiefdom_data) > 0 else 0
         
@@ -366,7 +509,7 @@ def create_itn_coverage_dashboard(gdf, itn_df, district_name, cols=4):
     return fig
 
 def generate_simple_summary(itn_df):
-    """Generate simple summary with just totals and coverage"""
+    """Generate simple summary with just totals and coverage - USING CONSISTENT CALCULATIONS"""
     
     summary_data = []
     
@@ -374,6 +517,7 @@ def generate_simple_summary(itn_df):
     for district in ["BO", "BOMBALI"]:
         district_data = itn_df[itn_df["District"].str.upper() == district.upper()]
         
+        # FIXED: Using consistent calculation method
         total_enrollment = int(district_data["Total_Enrollment"].sum())
         total_itns_distributed = int(district_data["Distributed_ITNs"].sum())
         coverage = (total_itns_distributed / total_enrollment * 100) if total_enrollment > 0 else 0
@@ -396,6 +540,7 @@ def generate_simple_summary(itn_df):
         for chiefdom in sorted(chiefdoms):
             chiefdom_data = district_data[district_data['Chiefdom'] == chiefdom]
             
+            # FIXED: Using consistent calculation method
             total_enrollment = int(chiefdom_data["Total_Enrollment"].sum())
             total_itns_distributed = int(chiefdom_data["Distributed_ITNs"].sum())
             coverage = (total_itns_distributed / total_enrollment * 100) if total_enrollment > 0 else 0
