@@ -164,7 +164,7 @@ def extract_itn_data_from_excel(df):
                 if pd.notna(girls_itns):
                     itns_girls_total += int(girls_itns)
         
-        # ITNs left at the school (this appears to be a single value per school, not per class)
+        # ITNs left at the school (this is a single value per school, not per class)
         left_col = "ITNs left at the school for pupils who were absent."
         if left_col in df.columns:
             left_itns = df[left_col].iloc[idx]
@@ -380,12 +380,12 @@ st.markdown("""
 - **Title**: `(ITNs Distributed, Total Enrollment)`
 - **Center**: Coverage percentage
 - **Colors**: Same as above color legend
-- **ITN Calculation**: Boys ITNs + Girls ITNs + ITNs Left at School
+- **ITN Calculation**: Boys ITNs + Girls ITNs + ITNs Left at School for Absent Pupils
 """)
 
 # File Information
 st.info("""
-**📁 Embedded Files:** `sbd first_submission_clean.xlsx` | `Chiefdom2021.shp`  
+**📁 Embedded Files:** `SBD_Final_data_dissemination_7_15_2025.xlsx` | `Chiefdom2021.shp`  
 **📊 Layout:** Fixed 4-column grid optimized for Word export
 """)
 
@@ -397,7 +397,7 @@ try:
     
 except Exception as e:
     st.error(f"❌ Error loading Excel file: {e}")
-    st.info("💡 Make sure 'sbd first_submission_clean.xlsx' is in the same directory as this app")
+    st.info("💡 Make sure 'SBD_Final_data_dissemination_7_15_2025.xlsx' is in the same directory as this app")
     st.stop()
 
 # Load shapefile (embedded)
@@ -419,40 +419,88 @@ try:
     itn_df = extract_itn_data_from_excel(df_original)
     st.success(f"✅ ITN data extracted successfully! Found {len(itn_df)} records.")
     
-    # Debug: Show column names that might contain ITNs left information
-    with st.expander("🔍 Debug: Check ITNs Left Column"):
+    # Debug: Show comprehensive ITNs calculation breakdown
+    with st.expander("🔍 Debug: ITN Calculation Verification"):
         st.write("**Available columns containing 'ITN' or 'left':**")
         itn_columns = [col for col in df_original.columns if 'itn' in col.lower() or 'left' in col.lower()]
         for col in itn_columns:
             st.write(f"- {col}")
         
-        # Show summary of ITNs left totals
-        total_boys = sum([df_original[f"How many boys in Class {i} received ITNs?"].fillna(0).sum() for i in range(1, 6) if f"How many boys in Class {i} received ITNs?" in df_original.columns])
-        total_girls = sum([df_original[f"How many girls in Class {i} received ITNs?"].fillna(0).sum() for i in range(1, 6) if f"How many girls in Class {i} received ITNs?" in df_original.columns])
-        
-        # Check different possible column names for ITNs left
-        left_col = "ITNs left at the school for pupils who were absent."
+        # Show detailed breakdown of ITNs calculation
+        total_boys = 0
+        total_girls = 0
         total_left = 0
-        found_left_column = None
         
+        # Calculate boys and girls ITNs by class
+        for class_num in range(1, 6):
+            boys_col = f"How many boys in Class {class_num} received ITNs?"
+            girls_col = f"How many girls in Class {class_num} received ITNs?"
+            
+            if boys_col in df_original.columns:
+                class_boys = df_original[boys_col].fillna(0).sum()
+                total_boys += class_boys
+                st.write(f"- Boys Class {class_num}: {class_boys:,}")
+            
+            if girls_col in df_original.columns:
+                class_girls = df_original[girls_col].fillna(0).sum()
+                total_girls += class_girls
+                st.write(f"- Girls Class {class_num}: {class_girls:,}")
+        
+        # Calculate ITNs left at school
+        left_col = "ITNs left at the school for pupils who were absent."
         if left_col in df_original.columns:
-            found_left_column = left_col
             total_left = df_original[left_col].fillna(0).sum()
+            st.write(f"- **ITNs Left at School**: {total_left:,}")
+        else:
+            st.warning("⚠️ 'ITNs left at the school for pupils who were absent.' column not found!")
         
-        st.write(f"**ITN Distribution Breakdown:**")
-        st.write(f"- Total Boys ITNs: {total_boys:,}")
-        st.write(f"- Total Girls ITNs: {total_girls:,}")
-        st.write(f"- Total Left at School: {total_left:,} (from column: '{found_left_column}')")
-        st.write(f"- **Grand Total ITNs: {total_boys + total_girls + total_left:,}**")
+        st.write(f"**📊 ITN Distribution Breakdown:**")
+        st.write(f"- Total Boys ITNs (all classes): {total_boys:,}")
+        st.write(f"- Total Girls ITNs (all classes): {total_girls:,}")
+        st.write(f"- Total Left at School for Absent Pupils: {total_left:,}")
+        st.write(f"- **🎯 Grand Total ITNs Distributed: {total_boys + total_girls + total_left:,}**")
         st.write(f"  └── Formula: Boys ITNs + Girls ITNs + ITNs Left at School")
         
         calculated_total = int(itn_df["Distributed_ITNs"].sum())
-        st.write(f"- **Calculated in DataFrame: {calculated_total:,}**")
+        st.write(f"- **✅ Calculated in DataFrame: {calculated_total:,}**")
         
         if calculated_total != (total_boys + total_girls + total_left):
             st.error(f"❌ Mismatch! Expected {total_boys + total_girls + total_left:,} but got {calculated_total:,}")
+            st.write("**Debugging the mismatch...**")
+            
+            # Show row-by-row calculation for first few rows
+            st.write("**Sample row calculations:**")
+            for idx in range(min(3, len(df_original))):
+                row_boys = 0
+                row_girls = 0
+                row_left = 0
+                
+                for class_num in range(1, 6):
+                    boys_col = f"How many boys in Class {class_num} received ITNs?"
+                    girls_col = f"How many girls in Class {class_num} received ITNs?"
+                    
+                    if boys_col in df_original.columns:
+                        boys_val = df_original[boys_col].iloc[idx]
+                        if pd.notna(boys_val):
+                            row_boys += int(boys_val)
+                    
+                    if girls_col in df_original.columns:
+                        girls_val = df_original[girls_col].iloc[idx]
+                        if pd.notna(girls_val):
+                            row_girls += int(girls_val)
+                
+                if left_col in df_original.columns:
+                    left_val = df_original[left_col].iloc[idx]
+                    if pd.notna(left_val):
+                        row_left = int(left_val)
+                
+                row_total = row_boys + row_girls + row_left
+                df_row_total = itn_df["Distributed_ITNs"].iloc[idx]
+                
+                st.write(f"Row {idx+1}: Boys={row_boys}, Girls={row_girls}, Left={row_left}, Total={row_total}, DF={df_row_total}")
+                
         else:
-            st.success("✅ ITN calculations match!")
+            st.success("✅ ITN calculations match perfectly!")
             
 except Exception as e:
     st.error(f"Error extracting ITN data: {e}")
@@ -542,7 +590,7 @@ with st.spinner("Generating BO District ITN coverage dashboard..."):
                 format_items = [
                     "Title: (ITNs Distributed, Total Enrollment)",
                     "Center: Coverage percentage",
-                    "ITN Calculation: Boys ITNs + Girls ITNs + ITNs Left at School",
+                    "ITN Calculation: Boys ITNs + Girls ITNs + ITNs Left at School for Absent Pupils",
                     "🔴 Red: < 20% coverage",
                     "🟠 Orange: 20-39% coverage", 
                     "🟡 Yellow: 40-59% coverage",
@@ -664,7 +712,7 @@ with st.spinner("Generating BOMBALI District ITN coverage dashboard..."):
                 format_items = [
                     "Title: (ITNs Distributed, Total Enrollment)",
                     "Center: Coverage percentage",
-                    "ITN Calculation: Boys ITNs + Girls ITNs + ITNs Left at School",
+                    "ITN Calculation: Boys ITNs + Girls ITNs + ITNs Left at School for Absent Pupils",
                     "🔴 Red: < 20% coverage",
                     "🟠 Orange: 20-39% coverage", 
                     "🟡 Yellow: 40-59% coverage",
@@ -758,7 +806,7 @@ if st.button("📋 Generate Combined ITN Report", help="Generate a comprehensive
         format_items = [
             "Title Format: (ITNs Distributed, Total Enrollment)",
             "Center Display: Coverage percentage",
-            "ITN Calculation: Boys ITNs + Girls ITNs + ITNs Left at School",
+            "ITN Calculation: Boys ITNs + Girls ITNs + ITNs Left at School for Absent Pupils",
             "🔴 Red: < 20% coverage (Critical - urgent action needed)",
             "🟠 Orange: 20-39% coverage (Poor - requires immediate attention)", 
             "🟡 Yellow: 40-59% coverage (Fair - needs improvement)",
@@ -805,7 +853,7 @@ if st.button("📋 Generate Combined ITN Report", help="Generate a comprehensive
         Coverage is calculated as: (ITNs Distributed / Total Enrollment) × 100%
         
         Formulas:
-        • ITN Distributed = Boys ITNs + Girls ITNs + ITNs Left at School
+        • ITN Distributed = Boys ITNs + Girls ITNs + ITNs Left at School for Absent Pupils
         • Total Enrollment = Sum of all pupils enrolled in Classes 1-5
         • Coverage = (ITNs Distributed / Total Enrollment) × 100%
         
