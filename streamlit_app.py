@@ -104,8 +104,78 @@ def map_chiefdom_name(chiefdom_name, mapping):
     # Return original if no mapping found
     return chiefdom_name
 
+def calculate_itn_totals_per_row(df, row_idx):
+    """Calculate ITN totals for a specific row - CONSISTENT METHOD"""
+    boys_total = 0
+    girls_total = 0
+    left_total = 0
+    
+    # Calculate boys and girls ITNs across all classes
+    for class_num in range(1, 6):
+        boys_col = f"How many boys in Class {class_num} received ITNs?"
+        girls_col = f"How many girls in Class {class_num} received ITNs?"
+        
+        if boys_col in df.columns:
+            boys_val = df[boys_col].iloc[row_idx]
+            if pd.notna(boys_val):
+                boys_total += int(boys_val)
+        
+        if girls_col in df.columns:
+            girls_val = df[girls_col].iloc[row_idx]
+            if pd.notna(girls_val):
+                girls_total += int(girls_val)
+    
+    # ITNs left at school (single value per school)
+    left_col = "ITNs left at the school for pupils who were absent."
+    if left_col in df.columns:
+        left_val = df[left_col].iloc[row_idx]
+        if pd.notna(left_val):
+            left_total = int(left_val)
+    
+    # Total ITNs = Boys + Girls + Left at School
+    total_distributed = boys_total + girls_total + left_total
+    
+    return {
+        'boys': boys_total,
+        'girls': girls_total, 
+        'left': left_total,
+        'total_distributed': total_distributed
+    }
+
+def calculate_itn_totals_for_dataframe(df):
+    """Calculate ITN totals for entire dataframe - CONSISTENT METHOD"""
+    total_boys = 0
+    total_girls = 0
+    total_left = 0
+    
+    # Calculate boys and girls ITNs across all classes
+    for class_num in range(1, 6):
+        boys_col = f"How many boys in Class {class_num} received ITNs?"
+        girls_col = f"How many girls in Class {class_num} received ITNs?"
+        
+        if boys_col in df.columns:
+            total_boys += int(df[boys_col].fillna(0).sum())
+        
+        if girls_col in df.columns:
+            total_girls += int(df[girls_col].fillna(0).sum())
+    
+    # ITNs left at school (sum across all schools)
+    left_col = "ITNs left at the school for pupils who were absent."
+    if left_col in df.columns:
+        total_left = int(df[left_col].fillna(0).sum())
+    
+    # Total ITNs = Boys + Girls + Left at School
+    total_distributed = total_boys + total_girls + total_left
+    
+    return {
+        'boys': total_boys,
+        'girls': total_girls,
+        'left': total_left,
+        'total_distributed': total_distributed
+    }
+
 def extract_itn_data_from_excel(df):
-    """Extract ITN coverage data from the Excel file"""
+    """Extract ITN coverage data from the Excel file using CONSISTENT calculation"""
     # Create empty lists to store extracted data
     districts, chiefdoms, total_enrollment, distributed_itns = [], [], [], []
     
@@ -144,37 +214,9 @@ def extract_itn_data_from_excel(df):
         
         total_enrollment.append(enrollment_total)
         
-        # Calculate total ITNs distributed (boys + girls + left at school)
-        itns_boys_total = 0
-        itns_girls_total = 0
-        itns_left_total = 0
-        
-        for class_num in range(1, 6):  # Classes 1-5
-            # ITNs distributed to boys
-            boys_col = f"How many boys in Class {class_num} received ITNs?"
-            if boys_col in df.columns:
-                boys_itns = df[boys_col].iloc[idx]
-                if pd.notna(boys_itns):
-                    itns_boys_total += int(boys_itns)
-            
-            # ITNs distributed to girls
-            girls_col = f"How many girls in Class {class_num} received ITNs?"
-            if girls_col in df.columns:
-                girls_itns = df[girls_col].iloc[idx]
-                if pd.notna(girls_itns):
-                    itns_girls_total += int(girls_itns)
-        
-        # ITNs left at the school (this is a single value per school, not per class)
-        left_col = "ITNs left at the school for pupils who were absent."
-        if left_col in df.columns:
-            left_itns = df[left_col].iloc[idx]
-            if pd.notna(left_itns):
-                itns_left_total = int(left_itns)
-        
-        # Total ITNs distributed = boys + girls + left at school (includes all ITN distributions)
-        itns_distributed = itns_boys_total + itns_girls_total + itns_left_total
-        
-        distributed_itns.append(itns_distributed)
+        # Calculate ITN totals using consistent method
+        itn_data = calculate_itn_totals_per_row(df, idx)
+        distributed_itns.append(itn_data['total_distributed'])
     
     # Create a new DataFrame with extracted values
     itn_df = pd.DataFrame({
@@ -397,7 +439,7 @@ try:
     
 except Exception as e:
     st.error(f"❌ Error loading Excel file: {e}")
-    st.info("💡 Make sure 'Final SBD submissions.xlsx' is in the same directory as this app")
+    st.info("💡 Make sure 'SBD_Final_data_dissemination_7_15_2025.xlsx' is in the same directory as this app")
     st.stop()
 
 # Load shapefile (embedded)
@@ -426,79 +468,29 @@ try:
         for col in itn_columns:
             st.write(f"- {col}")
         
-        # Show detailed breakdown of ITNs calculation
-        total_boys = 0
-        total_girls = 0
-        total_left = 0
+        # Calculate using consistent method
+        st.write("**📊 ITN Distribution Breakdown (Using Consistent Method):**")
+        total_data = calculate_itn_totals_for_dataframe(df_original)
         
-        # Calculate boys and girls ITNs by class
-        for class_num in range(1, 6):
-            boys_col = f"How many boys in Class {class_num} received ITNs?"
-            girls_col = f"How many girls in Class {class_num} received ITNs?"
-            
-            if boys_col in df_original.columns:
-                class_boys = df_original[boys_col].fillna(0).sum()
-                total_boys += class_boys
-                st.write(f"- Boys Class {class_num}: {class_boys:,}")
-            
-            if girls_col in df_original.columns:
-                class_girls = df_original[girls_col].fillna(0).sum()
-                total_girls += class_girls
-                st.write(f"- Girls Class {class_num}: {class_girls:,}")
-        
-        # Calculate ITNs left at school
-        left_col = "ITNs left at the school for pupils who were absent."
-        if left_col in df_original.columns:
-            total_left = df_original[left_col].fillna(0).sum()
-            st.write(f"- **ITNs Left at School**: {total_left:,}")
-        else:
-            st.warning("⚠️ 'ITNs left at the school for pupils who were absent.' column not found!")
-        
-        st.write(f"**📊 ITN Distribution Breakdown:**")
-        st.write(f"- Total Boys ITNs (all classes): {total_boys:,}")
-        st.write(f"- Total Girls ITNs (all classes): {total_girls:,}")
-        st.write(f"- Total Left at School for Absent Pupils: {total_left:,}")
-        st.write(f"- **🎯 Grand Total ITNs Distributed: {total_boys + total_girls + total_left:,}**")
+        st.write(f"- Total Boys ITNs (all classes): {total_data['boys']:,}")
+        st.write(f"- Total Girls ITNs (all classes): {total_data['girls']:,}")
+        st.write(f"- Total ITNs Left at School for Absent Pupils: {total_data['left']:,}")
+        st.write(f"- **🎯 Grand Total ITNs Distributed: {total_data['total_distributed']:,}**")
         st.write(f"  └── Formula: Boys ITNs + Girls ITNs + ITNs Left at School")
         
         calculated_total = int(itn_df["Distributed_ITNs"].sum())
         st.write(f"- **✅ Calculated in DataFrame: {calculated_total:,}**")
         
-        if calculated_total != (total_boys + total_girls + total_left):
-            st.error(f"❌ Mismatch! Expected {total_boys + total_girls + total_left:,} but got {calculated_total:,}")
-            st.write("**Debugging the mismatch...**")
+        if calculated_total != total_data['total_distributed']:
+            st.error(f"❌ Mismatch! Expected {total_data['total_distributed']:,} but got {calculated_total:,}")
             
-            # Show row-by-row calculation for first few rows
-            st.write("**Sample row calculations:**")
+            # Show sample calculations for debugging
+            st.write("**Sample row calculations for debugging:**")
             for idx in range(min(3, len(df_original))):
-                row_boys = 0
-                row_girls = 0
-                row_left = 0
-                
-                for class_num in range(1, 6):
-                    boys_col = f"How many boys in Class {class_num} received ITNs?"
-                    girls_col = f"How many girls in Class {class_num} received ITNs?"
-                    
-                    if boys_col in df_original.columns:
-                        boys_val = df_original[boys_col].iloc[idx]
-                        if pd.notna(boys_val):
-                            row_boys += int(boys_val)
-                    
-                    if girls_col in df_original.columns:
-                        girls_val = df_original[girls_col].iloc[idx]
-                        if pd.notna(girls_val):
-                            row_girls += int(girls_val)
-                
-                if left_col in df_original.columns:
-                    left_val = df_original[left_col].iloc[idx]
-                    if pd.notna(left_val):
-                        row_left = int(left_val)
-                
-                row_total = row_boys + row_girls + row_left
+                row_data = calculate_itn_totals_per_row(df_original, idx)
                 df_row_total = itn_df["Distributed_ITNs"].iloc[idx]
                 
-                st.write(f"Row {idx+1}: Boys={row_boys}, Girls={row_girls}, Left={row_left}, Total={row_total}, DF={df_row_total}")
-                
+                st.write(f"Row {idx+1}: Boys={row_data['boys']}, Girls={row_data['girls']}, Left={row_data['left']}, Total={row_data['total_distributed']}, DF={df_row_total}")
         else:
             st.success("✅ ITN calculations match perfectly!")
             
@@ -551,101 +543,6 @@ with st.spinner("Generating BO District ITN coverage dashboard..."):
                 file_name="BO_District_ITN_Coverage_Dashboard.png",
                 mime="image/png"
             )
-            
-            # Word Export for BO District
-            try:
-                from docx import Document
-                from docx.shared import Inches, Pt
-                from docx.enum.text import WD_ALIGN_PARAGRAPH
-                
-                # Create Word document
-                doc = Document()
-                
-                # Add title
-                title = doc.add_heading('BO District - ITN Coverage Analysis', 0)
-                title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                
-                # Add generation date
-                date_para = doc.add_paragraph()
-                date_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                date_run = date_para.add_run(f"Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                date_run.font.size = Pt(12)
-                
-                doc.add_paragraph()  # Add space
-                
-                # Save matplotlib figure as PNG and embed in Word
-                timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
-                png_filename = f"BO_District_ITN_Coverage_{timestamp}.png"
-                
-                # Save PNG file to current directory
-                fig_bo_itn.savefig(png_filename, format='png', dpi=200, 
-                                  bbox_inches='tight', facecolor='white', 
-                                  edgecolor='none', pad_inches=0.1)
-                
-                # Add the saved PNG to Word document
-                doc.add_picture(png_filename, width=Inches(9.5))  # Fits well in Word page
-                
-                # Add format explanation
-                doc.add_heading('ITN Coverage Format', level=2)
-                format_items = [
-                    "Title: (ITNs Distributed, Total Enrollment)",
-                    "Center: Coverage percentage",
-                    "ITN Calculation: Boys ITNs + Girls ITNs + ITNs Left at School for Absent Pupils",
-                    "🔴 Red: < 20% coverage",
-                    "🟠 Orange: 20-39% coverage", 
-                    "🟡 Yellow: 40-59% coverage",
-                    "🟢 Light Green: 60-79% coverage",
-                    "🔵 Blue: 80-99% coverage",
-                    "🟣 Purple: 100%+ coverage"
-                ]
-                
-                for item in format_items:
-                    p = doc.add_paragraph()
-                    p.add_run('• ').bold = True
-                    p.add_run(item)
-                
-                # Add summary information
-                doc.add_heading('Dashboard Summary', level=2)
-                
-                bo_data = itn_df[itn_df["District"].str.upper() == "BO"]
-                bo_enrollment = int(bo_data["Total_Enrollment"].sum())
-                bo_distributed = int(bo_data["Distributed_ITNs"].sum())
-                bo_coverage = (bo_distributed / bo_enrollment * 100) if bo_enrollment > 0 else 0
-                
-                summary_text = f"""
-                District: BO
-                Total Chiefdoms: {len(gdf[gdf['FIRST_DNAM'] == 'BO'])}
-                Total Enrollment: {bo_enrollment:,}
-                ITNs Distributed: {bo_distributed:,}
-                ITN Coverage: {bo_coverage:.1f}%
-                PNG File Saved: {png_filename}
-                """
-                
-                for line in summary_text.strip().split('\n'):
-                    if line.strip():
-                        p = doc.add_paragraph()
-                        p.add_run('• ').bold = True
-                        p.add_run(line.strip())
-                
-                # Save to BytesIO
-                word_buffer = BytesIO()
-                doc.save(word_buffer)
-                word_data = word_buffer.getvalue()
-                
-                # Success message
-                st.success(f"✅ PNG saved as: {png_filename}")
-                
-                st.download_button(
-                    label="📄 Download BO District ITN Report (Word)",
-                    data=word_data,
-                    file_name=f"BO_District_ITN_Report_{timestamp}.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                )
-                
-            except ImportError:
-                st.warning("⚠️ Word export requires python-docx library. Install with: pip install python-docx")
-            except Exception as e:
-                st.warning(f"⚠️ Word export failed: {str(e)}")
         else:
             st.warning("Could not generate BO District ITN coverage dashboard")
     except Exception as e:
@@ -673,295 +570,16 @@ with st.spinner("Generating BOMBALI District ITN coverage dashboard..."):
                 file_name="BOMBALI_District_ITN_Coverage_Dashboard.png",
                 mime="image/png"
             )
-            
-            # Word Export for BOMBALI District
-            try:
-                from docx import Document
-                from docx.shared import Inches, Pt
-                from docx.enum.text import WD_ALIGN_PARAGRAPH
-                
-                # Create Word document
-                doc = Document()
-                
-                # Add title
-                title = doc.add_heading('BOMBALI District - ITN Coverage Analysis', 0)
-                title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                
-                # Add generation date
-                date_para = doc.add_paragraph()
-                date_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                date_run = date_para.add_run(f"Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                date_run.font.size = Pt(12)
-                
-                doc.add_paragraph()  # Add space
-                
-                # Save matplotlib figure as PNG and embed in Word
-                timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
-                png_filename = f"BOMBALI_District_ITN_Coverage_{timestamp}.png"
-                
-                # Save PNG file to current directory
-                fig_bombali_itn.savefig(png_filename, format='png', dpi=200, 
-                                       bbox_inches='tight', facecolor='white', 
-                                       edgecolor='none', pad_inches=0.1)
-                
-                # Add the saved PNG to Word document
-                doc.add_picture(png_filename, width=Inches(9.5))  # Fits well in Word page
-                
-                # Add format explanation
-                doc.add_heading('ITN Coverage Format', level=2)
-                format_items = [
-                    "Title: (ITNs Distributed, Total Enrollment)",
-                    "Center: Coverage percentage",
-                    "ITN Calculation: Boys ITNs + Girls ITNs + ITNs Left at School for Absent Pupils",
-                    "🔴 Red: < 20% coverage",
-                    "🟠 Orange: 20-39% coverage", 
-                    "🟡 Yellow: 40-59% coverage",
-                    "🟢 Light Green: 60-79% coverage",
-                    "🔵 Blue: 80-99% coverage",
-                    "🟣 Purple: 100%+ coverage"
-                ]
-                
-                for item in format_items:
-                    p = doc.add_paragraph()
-                    p.add_run('• ').bold = True
-                    p.add_run(item)
-                
-                # Add summary information
-                doc.add_heading('Dashboard Summary', level=2)
-                
-                bombali_data = itn_df[itn_df["District"].str.upper() == "BOMBALI"]
-                bombali_enrollment = int(bombali_data["Total_Enrollment"].sum())
-                bombali_distributed = int(bombali_data["Distributed_ITNs"].sum())
-                bombali_coverage = (bombali_distributed / bombali_enrollment * 100) if bombali_enrollment > 0 else 0
-                
-                summary_text = f"""
-                District: BOMBALI
-                Total Chiefdoms: {len(gdf[gdf['FIRST_DNAM'] == 'BOMBALI'])}
-                Total Enrollment: {bombali_enrollment:,}
-                ITNs Distributed: {bombali_distributed:,}
-                ITN Coverage: {bombali_coverage:.1f}%
-                PNG File Saved: {png_filename}
-                """
-                
-                for line in summary_text.strip().split('\n'):
-                    if line.strip():
-                        p = doc.add_paragraph()
-                        p.add_run('• ').bold = True
-                        p.add_run(line.strip())
-                
-                # Save to BytesIO
-                word_buffer = BytesIO()
-                doc.save(word_buffer)
-                word_data = word_buffer.getvalue()
-                
-                # Success message
-                st.success(f"✅ PNG saved as: {png_filename}")
-                
-                st.download_button(
-                    label="📄 Download BOMBALI District ITN Report (Word)",
-                    data=word_data,
-                    file_name=f"BOMBALI_District_ITN_Report_{timestamp}.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                )
-                
-            except ImportError:
-                st.warning("⚠️ Word export requires python-docx library. Install with: pip install python-docx")
-            except Exception as e:
-                st.warning(f"⚠️ Word export failed: {str(e)}")
         else:
             st.warning("Could not generate BOMBALI District ITN coverage dashboard")
     except Exception as e:
         st.error(f"Error generating BOMBALI District ITN coverage dashboard: {e}")
 
-# Export All Dashboards as Combined Word Document
-st.header("📄 Combined Word Export")
-
-if st.button("📋 Generate Combined ITN Report", help="Generate a comprehensive Word document with both districts"):
-    try:
-        from docx import Document
-        from docx.shared import Inches, Pt
-        from docx.enum.text import WD_ALIGN_PARAGRAPH
-        
-        # Create Word document
-        doc = Document()
-        
-        # Add main title
-        title = doc.add_heading('School-Based Distribution (SBD)', 0)
-        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        
-        subtitle = doc.add_heading('ITN Coverage Analysis Dashboard', level=1)
-        subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        
-        # Add generation date
-        date_para = doc.add_paragraph()
-        date_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        date_run = date_para.add_run(f"Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        date_run.font.size = Pt(12)
-        date_run.bold = True
-        
-        doc.add_page_break()
-        
-        # ITN Coverage Format Explanation
-        doc.add_heading('ITN Coverage Format', level=1)
-        format_items = [
-            "Title Format: (ITNs Distributed, Total Enrollment)",
-            "Center Display: Coverage percentage",
-            "ITN Calculation: Boys ITNs + Girls ITNs + ITNs Left at School for Absent Pupils",
-            "🔴 Red: < 20% coverage (Critical - urgent action needed)",
-            "🟠 Orange: 20-39% coverage (Poor - requires immediate attention)", 
-            "🟡 Yellow: 40-59% coverage (Fair - needs improvement)",
-            "🟢 Light Green: 60-79% coverage (Good - meeting targets)",
-            "🔵 Blue: 80-99% coverage (Excellent - exceeding expectations)",
-            "🟣 Purple: 100%+ coverage (Outstanding - full coverage achieved)"
-        ]
-        
-        for item in format_items:
-            p = doc.add_paragraph()
-            p.add_run('• ').bold = True
-            p.add_run(item)
-        
-        doc.add_page_break()
-        
-        # Executive Summary
-        doc.add_heading('Executive Summary', level=1)
-        
-        total_enrollment = int(itn_df["Total_Enrollment"].sum())
-        total_distributed = int(itn_df["Distributed_ITNs"].sum())
-        overall_coverage = (total_distributed / total_enrollment * 100) if total_enrollment > 0 else 0
-        
-        bo_data = itn_df[itn_df["District"].str.upper() == "BO"]
-        bombali_data = itn_df[itn_df["District"].str.upper() == "BOMBALI"]
-        
-        bo_enrollment = int(bo_data["Total_Enrollment"].sum())
-        bo_distributed = int(bo_data["Distributed_ITNs"].sum())
-        bo_coverage = (bo_distributed / bo_enrollment * 100) if bo_enrollment > 0 else 0
-        
-        bombali_enrollment = int(bombali_data["Total_Enrollment"].sum())
-        bombali_distributed = int(bombali_data["Distributed_ITNs"].sum())
-        bombali_coverage = (bombali_distributed / bombali_enrollment * 100) if bombali_enrollment > 0 else 0
-        
-        summary_text = f"""
-        This comprehensive dashboard report presents ITN distribution effectiveness analysis for BO and BOMBALI districts:
-        
-        • Districts Covered: BO, BOMBALI
-        • Total Student Enrollment: {total_enrollment:,}
-        • Total ITNs Distributed: {total_distributed:,}
-        • Overall ITN Coverage: {overall_coverage:.1f}%
-        • BO District Coverage: {bo_coverage:.1f}%
-        • BOMBALI District Coverage: {bombali_coverage:.1f}%
-        
-        Coverage is calculated as: (ITNs Distributed / Total Enrollment) × 100%
-        
-        Formulas:
-        • ITN Distributed = Boys ITNs + Girls ITNs + ITNs Left at School for Absent Pupils
-        • Total Enrollment = Sum of all pupils enrolled in Classes 1-5
-        • Coverage = (ITNs Distributed / Total Enrollment) × 100%
-        
-        Color coding helps identify areas requiring attention and those performing well.
-        Format shows (ITNs Distributed, Total Enrollment) with coverage percentage in center.
-        """
-        
-        for line in summary_text.strip().split('\n'):
-            if line.strip():
-                if line.startswith('•'):
-                    p = doc.add_paragraph()
-                    p.add_run(line.strip())
-                else:
-                    doc.add_paragraph(line.strip())
-        
-        doc.add_page_break()
-        
-        # BO District section
-        if 'fig_bo_itn' in locals():
-            doc.add_heading('BO District - ITN Coverage Analysis', level=1)
-            
-            # Save BO figure as PNG and embed in Word
-            timestamp = pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')
-            bo_png_filename = f"BO_District_ITN_Combined_{timestamp}.png"
-            
-            # Save PNG file to current directory
-            fig_bo_itn.savefig(bo_png_filename, format='png', dpi=200, 
-                              bbox_inches='tight', facecolor='white', 
-                              edgecolor='none', pad_inches=0.1)
-            
-            # Add the saved PNG to Word document
-            doc.add_picture(bo_png_filename, width=Inches(9.5))  # Fits well in Word page
-            
-            # BO summary
-            doc.add_heading('BO District Summary', level=2)
-            
-            bo_summary_items = [
-                f"Total Chiefdoms: {len(gdf[gdf['FIRST_DNAM'] == 'BO'])}",
-                f"Total Enrollment: {bo_enrollment:,}",
-                f"ITNs Distributed: {bo_distributed:,}",
-                f"ITN Coverage: {bo_coverage:.1f}%",
-                f"PNG File Saved: {bo_png_filename}"
-            ]
-            
-            for item in bo_summary_items:
-                p = doc.add_paragraph()
-                p.add_run('• ').bold = True
-                p.add_run(item)
-            
-            doc.add_page_break()
-        
-        # BOMBALI District section
-        if 'fig_bombali_itn' in locals():
-            doc.add_heading('BOMBALI District - ITN Coverage Analysis', level=1)
-            
-            # Save BOMBALI figure as PNG and embed in Word
-            bombali_png_filename = f"BOMBALI_District_ITN_Combined_{timestamp}.png"
-            
-            # Save PNG file to current directory
-            fig_bombali_itn.savefig(bombali_png_filename, format='png', dpi=200, 
-                                   bbox_inches='tight', facecolor='white', 
-                                   edgecolor='none', pad_inches=0.1)
-            
-            # Add the saved PNG to Word document
-            doc.add_picture(bombali_png_filename, width=Inches(9.5))  # Fits well in Word page
-            
-            # BOMBALI summary
-            doc.add_heading('BOMBALI District Summary', level=2)
-            
-            bombali_summary_items = [
-                f"Total Chiefdoms: {len(gdf[gdf['FIRST_DNAM'] == 'BOMBALI'])}",
-                f"Total Enrollment: {bombali_enrollment:,}",
-                f"ITNs Distributed: {bombali_distributed:,}",
-                f"ITN Coverage: {bombali_coverage:.1f}%",
-                f"PNG File Saved: {bombali_png_filename}"
-            ]
-            
-            for item in bombali_summary_items:
-                p = doc.add_paragraph()
-                p.add_run('• ').bold = True
-                p.add_run(item)
-        
-        # Save to BytesIO
-        word_buffer = BytesIO()
-        doc.save(word_buffer)
-        word_data = word_buffer.getvalue()
-        
-        # Success message showing saved PNG files
-        st.success(f"✅ PNG files saved: {bo_png_filename}, {bombali_png_filename}")
-        
-        st.download_button(
-            label="💾 Download Combined ITN Analysis Report (Word)",
-            data=word_data,
-            file_name=f"ITN_Coverage_Analysis_Report_{timestamp}.docx",
-            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            help="Download comprehensive Word report with both districts"
-        )
-        
-    except ImportError:
-        st.error("❌ Word generation requires python-docx library. Please install it using: pip install python-docx")
-    except Exception as e:
-        st.error(f"❌ Error generating combined Word document: {str(e)}")
-
 # ITN Analysis
 st.header("📈 ITN Distribution Analysis")
 
 if len(itn_df) > 0:
-    # Calculate ITN statistics
+    # Calculate ITN statistics using consistent method
     bo_data = itn_df[itn_df["District"].str.upper() == "BO"]
     bombali_data = itn_df[itn_df["District"].str.upper() == "BOMBALI"]
     
@@ -1057,6 +675,21 @@ if len(itn_df) > 0:
     
     except Exception as e:
         st.error(f"Error generating distribution summary: {e}")
+
+# Show the calculation formula clearly
+st.header("🧮 ITN Calculation Formula")
+st.info("""
+**Complete ITN Distribution Formula:**
+
+ITNs Distributed = Boys ITNs (Classes 1-5) + Girls ITNs (Classes 1-5) + ITNs Left at School for Absent Pupils
+
+**Components:**
+- **Boys ITNs**: Sum of boys who received ITNs across all classes (1-5)
+- **Girls ITNs**: Sum of girls who received ITNs across all classes (1-5)  
+- **ITNs Left at School**: ITNs reserved at school for pupils who were absent during distribution
+
+This ensures complete accounting of all ITN distribution efforts including direct distribution and reserves for absent students.
+""")
 
 # Memory optimization - close matplotlib figures
 plt.close('all')
