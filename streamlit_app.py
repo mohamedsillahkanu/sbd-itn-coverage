@@ -143,23 +143,30 @@ def calculate_itn_totals_per_row(df, row_idx):
     }
 
 def calculate_itn_totals_for_dataframe(df):
-    """Calculate ITN totals for entire dataframe - CONSISTENT METHOD"""
+    """Calculate ITN totals for entire dataframe - CONSISTENT METHOD with detailed breakdown"""
     total_boys = 0
     total_girls = 0
     total_left = 0
     
-    # Calculate boys and girls ITNs across all classes
+    # Calculate boys and girls ITNs across all classes with detailed tracking
+    boys_by_class = {}
+    girls_by_class = {}
+    
     for class_num in range(1, 6):
         boys_col = f"How many boys in Class {class_num} received ITNs?"
         girls_col = f"How many girls in Class {class_num} received ITNs?"
         
         if boys_col in df.columns:
-            total_boys += int(df[boys_col].fillna(0).sum())
+            class_boys = int(df[boys_col].fillna(0).sum())
+            boys_by_class[f"Class {class_num}"] = class_boys
+            total_boys += class_boys
         
         if girls_col in df.columns:
-            total_girls += int(df[girls_col].fillna(0).sum())
+            class_girls = int(df[girls_col].fillna(0).sum())
+            girls_by_class[f"Class {class_num}"] = class_girls
+            total_girls += class_girls
     
-    # ITNs left at school (sum across all schools)
+    # ITNs left at school (sum across all schools) - THIS SHOULD ONLY BE COUNTED ONCE PER SCHOOL
     left_col = "ITNs left at the school for pupils who were absent."
     if left_col in df.columns:
         total_left = int(df[left_col].fillna(0).sum())
@@ -171,7 +178,9 @@ def calculate_itn_totals_for_dataframe(df):
         'boys': total_boys,
         'girls': total_girls,
         'left': total_left,
-        'total_distributed': total_distributed
+        'total_distributed': total_distributed,
+        'boys_by_class': boys_by_class,
+        'girls_by_class': girls_by_class
     }
 
 def extract_itn_data_from_excel(df):
@@ -472,27 +481,73 @@ try:
         st.write("**📊 ITN Distribution Breakdown (Using Consistent Method):**")
         total_data = calculate_itn_totals_for_dataframe(df_original)
         
-        st.write(f"- Total Boys ITNs (all classes): {total_data['boys']:,}")
-        st.write(f"- Total Girls ITNs (all classes): {total_data['girls']:,}")
-        st.write(f"- Total ITNs Left at School for Absent Pupils: {total_data['left']:,}")
-        st.write(f"- **🎯 Grand Total ITNs Distributed: {total_data['total_distributed']:,}**")
-        st.write(f"  └── Formula: Boys ITNs + Girls ITNs + ITNs Left at School")
+        # Show boys by class
+        st.write("**Boys ITNs by Class:**")
+        for class_name, count in total_data['boys_by_class'].items():
+            st.write(f"  - {class_name}: {count:,}")
+        st.write(f"  - **Total Boys**: {total_data['boys']:,}")
+        
+        # Show girls by class  
+        st.write("**Girls ITNs by Class:**")
+        for class_name, count in total_data['girls_by_class'].items():
+            st.write(f"  - {class_name}: {count:,}")
+        st.write(f"  - **Total Girls**: {total_data['girls']:,}")
+        
+        # Show left at school details
+        st.write("**ITNs Left at School Analysis:**")
+        left_col = "ITNs left at the school for pupils who were absent."
+        if left_col in df_original.columns:
+            left_values = df_original[left_col].dropna()
+            st.write(f"  - Number of schools with 'left' data: {len(left_values)}")
+            st.write(f"  - Min left at school: {left_values.min()}")
+            st.write(f"  - Max left at school: {left_values.max()}")
+            st.write(f"  - Mean left at school: {left_values.mean():.1f}")
+            st.write(f"  - **Total Left at School**: {total_data['left']:,}")
+            
+            # Show sample of left values
+            st.write("  - Sample 'left' values from first 10 schools:")
+            for i in range(min(10, len(left_values))):
+                st.write(f"    School {i+1}: {int(left_values.iloc[i])}")
+        else:
+            st.error(f"  - Column '{left_col}' not found!")
+        
+        st.write(f"**🎯 FINAL TOTALS:**")
+        st.write(f"- Boys ITNs: {total_data['boys']:,}")
+        st.write(f"- Girls ITNs: {total_data['girls']:,}")
+        st.write(f"- Left at School: {total_data['left']:,}")
+        st.write(f"- **Grand Total ITNs: {total_data['total_distributed']:,}**")
         
         calculated_total = int(itn_df["Distributed_ITNs"].sum())
-        st.write(f"- **✅ Calculated in DataFrame: {calculated_total:,}**")
+        st.write(f"- **DataFrame Total: {calculated_total:,}**")
         
         if calculated_total != total_data['total_distributed']:
-            st.error(f"❌ Mismatch! Expected {total_data['total_distributed']:,} but got {calculated_total:,}")
+            st.error(f"❌ MISMATCH! Expected {total_data['total_distributed']:,} but got {calculated_total:,}")
+            st.write("**Investigating the mismatch...**")
             
-            # Show sample calculations for debugging
-            st.write("**Sample row calculations for debugging:**")
-            for idx in range(min(3, len(df_original))):
-                row_data = calculate_itn_totals_per_row(df_original, idx)
-                df_row_total = itn_df["Distributed_ITNs"].iloc[idx]
-                
-                st.write(f"Row {idx+1}: Boys={row_data['boys']}, Girls={row_data['girls']}, Left={row_data['left']}, Total={row_data['total_distributed']}, DF={df_row_total}")
+            # Check if we're double-counting or missing something
+            st.write("**Manual verification from raw data:**")
+            manual_boys = sum([df_original[f"How many boys in Class {i} received ITNs?"].fillna(0).sum() for i in range(1, 6) if f"How many boys in Class {i} received ITNs?" in df_original.columns])
+            manual_girls = sum([df_original[f"How many girls in Class {i} received ITNs?"].fillna(0).sum() for i in range(1, 6) if f"How many girls in Class {i} received ITNs?" in df_original.columns])
+            manual_left = df_original[left_col].fillna(0).sum() if left_col in df_original.columns else 0
+            manual_total = manual_boys + manual_girls + manual_left
+            
+            st.write(f"Manual calculation: Boys={manual_boys:,}, Girls={manual_girls:,}, Left={manual_left:,}, Total={manual_total:,}")
+            
         else:
             st.success("✅ ITN calculations match perfectly!")
+            
+        # What should the correct total be?
+        st.write("**🤔 Expected ITN Total Check:**")
+        st.write("Based on your feedback, the total should NOT be 216,851.")
+        st.write(f"Current calculation gives: {total_data['total_distributed']:,}")
+        st.write("Please verify if this breakdown looks correct:")
+        st.write(f"- Boys receiving ITNs: {total_data['boys']:,}")
+        st.write(f"- Girls receiving ITNs: {total_data['girls']:,}")  
+        st.write(f"- ITNs left for absent pupils: {total_data['left']:,}")
+        st.write("")
+        st.write("**Question: Should we exclude the 'ITNs left at school' from the total?**")
+        st.write("If yes, the total would be:", f"{total_data['boys'] + total_data['girls']:,}")
+            
             
 except Exception as e:
     st.error(f"Error extracting ITN data: {e}")
