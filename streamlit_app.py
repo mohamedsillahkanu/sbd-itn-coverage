@@ -392,12 +392,12 @@ st.info("""
 # Load the embedded data files
 try:
     # Load Excel file (embedded)
-    df_original = pd.read_excel("SBD_Final_data_dissemination_7_15_2025.xlsx")
+    df_original = pd.read_excel("Final SBD submissions.xlsx")
     st.success(f"✅ Excel file loaded successfully! Found {len(df_original)} records.")
     
 except Exception as e:
     st.error(f"❌ Error loading Excel file: {e}")
-    st.info("💡 Make sure 'SBD_Final_data_dissemination_7_15_2025.xlsx' is in the same directory as this app")
+    st.info("💡 Make sure 'Final SBD submissions.xlsx' is in the same directory as this app")
     st.stop()
 
 # Load shapefile (embedded)
