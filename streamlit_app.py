@@ -588,7 +588,6 @@ st.markdown("""
 - **Center**: Coverage percentage (capped at 100%)
 - **Colors**: Same as above color legend
 - **ITN Calculation**: Boys ITNs + Girls ITNs + ITNs Left at School for Absent Pupils
-- **100% Display Rule**: When coverage ≥ 100%, numbers in brackets show equal values (enrollment, enrollment) but color reflects actual coverage
 """)
 
 # File Information
