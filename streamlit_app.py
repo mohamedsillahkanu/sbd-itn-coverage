@@ -588,7 +588,7 @@ st.info("""
 # Load the embedded data files
 try:
     # Load Excel file (embedded)
-    df_original = pd.read_excel("SBD_Final_data_dissemination_pmi_evolve_2025.xlsx")
+    df_original = pd.read_excel("SBD_Final_data_dissemination_pmi_evolve_2025_09.xlsx")
     st.success(f"✅ Excel file loaded successfully! Found {len(df_original)} records.")
     
 except Exception as e:
