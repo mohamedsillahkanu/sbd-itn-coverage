@@ -396,7 +396,7 @@ def get_coverage_color(coverage_percent):
         return '#4a148c'  # Purple (100% coverage)
 
 def create_itn_coverage_dashboard(gdf, itn_df, district_name, cols=4):
-    """Create ITN coverage dashboard optimized for Word document export - FIXED CALCULATIONS WITH 100% CAP"""
+    """Create ITN coverage dashboard without numbers in brackets - CLEAN VERSION"""
     
     # Filter shapefile for the district
     district_gdf = gdf[gdf['FIRST_DNAM'] == district_name].copy()
@@ -439,24 +439,20 @@ def create_itn_coverage_dashboard(gdf, itn_df, district_name, cols=4):
         district_data = itn_df[itn_df["District"].str.upper() == district_name.upper()].copy()
         chiefdom_data = district_data[district_data["Chiefdom"] == chiefdom].copy()
         
-        # FIXED: Calculate totals for this chiefdom using consistent method
+        # Calculate totals for this chiefdom using consistent method
         enrollment_total = int(chiefdom_data["Total_Enrollment"].sum()) if len(chiefdom_data) > 0 else 0
         itns_total = int(chiefdom_data["Distributed_ITNs"].sum()) if len(chiefdom_data) > 0 else 0
         
         # Calculate coverage percentage
         coverage_percent = (itns_total / enrollment_total * 100) if enrollment_total > 0 else 0
         
-        # NEW: Handle 100% coverage display logic
+        # Handle 100% coverage display logic
         if coverage_percent >= 100:
-            # When coverage is 100% or more, show equal numbers in brackets
+            # When coverage is 100% or more, cap display at 100%
             display_coverage_percent = 100.0
-            display_itns = enrollment_total  # Set ITNs equal to enrollment for display
-            display_enrollment = enrollment_total
         else:
             # Normal display when coverage is less than 100%
             display_coverage_percent = coverage_percent
-            display_itns = itns_total
-            display_enrollment = enrollment_total
         
         # Get color based on actual coverage (use original coverage for color determination)
         coverage_color = get_coverage_color(coverage_percent)
@@ -464,14 +460,11 @@ def create_itn_coverage_dashboard(gdf, itn_df, district_name, cols=4):
         # Plot chiefdom boundary with coverage color
         chiefdom_gdf.plot(ax=ax, color=coverage_color, edgecolor='black', alpha=0.8, linewidth=1.5)
         
-        # Create ITN coverage text (n, m) format using display values
-        itn_text = f"({display_itns}, {display_enrollment})"
+        # MODIFIED: Set title with just chiefdom name (NO BRACKETS)
+        ax.set_title(f'{chiefdom}', 
+                    fontsize=11, fontweight='bold', pad=8)
         
-        # Set title with ITN coverage information (optimized font size for Word)
-        ax.set_title(f'{chiefdom}\n{itn_text}', 
-                    fontsize=10, fontweight='bold', pad=8)
-        
-        # Add coverage percentage in the center of the chiefdom (use display percentage)
+        # Add coverage percentage in the center of the chiefdom
         if len(chiefdom_gdf) > 0:
             # Get center of chiefdom
             bounds = chiefdom_gdf.total_bounds
@@ -581,12 +574,12 @@ st.markdown("""
 - 🟣 **Purple**: 100%+
 """)
 
-# Coverage format explanation
+# Coverage format explanation - UPDATED TO REMOVE BRACKETS REFERENCE
 st.markdown("""
 ### ITN Coverage Format:
-- **Title**: `(ITNs Distributed, Total Enrollment)`
+- **Title**: Chiefdom name only (clean display)
 - **Center**: Coverage percentage (capped at 100%)
-- **Colors**: Same as above color legend
+- **Colors**: Coverage ranges as shown in legend above
 - **ITN Calculation**: Boys ITNs + Girls ITNs + ITNs Left at School for Absent Pupils
 """)
 
